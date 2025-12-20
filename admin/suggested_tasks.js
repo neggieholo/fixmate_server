@@ -1,0 +1,131 @@
+import express from "express";
+import pool from "../db.js";
+
+const router = express.Router();
+
+/* ---------------- CREATE TASK ---------------- */
+router.post("/", async (req, res) => {
+  if (!req.user) return res.status(401).json({ error: "Unauthorized" });
+
+  const { asset_type_id, task_category_id, name, standard_value, unit, remarks } = req.body;
+
+  if (!asset_type_id || !task_category_id || !name?.trim()) {
+    return res.status(400).json({ error: "Missing required fields" });
+  }
+
+  try {
+    const result = await pool.query(
+      `INSERT INTO tasks 
+        (asset_type_id, task_category_id, name, standard_value, unit, remarks) 
+       VALUES ($1, $2, $3, $4, $5, $6) 
+       RETURNING *`,
+      [
+        asset_type_id,
+        task_category_id,
+        name.trim(),
+        standard_value?.trim() || null,
+        unit?.trim() || null,
+        remarks?.trim() || null
+      ]
+    );
+
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to create task" });
+  }
+});
+
+/* ---------------- GET ALL TASKS ---------------- */
+router.get("/", async (req, res) => {
+  if (!req.user) return res.status(401).json({ error: "Unauthorized" });
+
+  try {
+    const result = await pool.query("SELECT * FROM tasks ORDER BY id DESC");
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch tasks" });
+  }
+});
+
+/* ---------------- GET SINGLE TASK ---------------- */
+router.get("/:id", async (req, res) => {
+  if (!req.user) return res.status(401).json({ error: "Unauthorized" });
+
+  const { id } = req.params;
+
+  try {
+    const result = await pool.query("SELECT * FROM tasks WHERE id = $1", [id]);
+    if (result.rowCount === 0) return res.status(404).json({ error: "Task not found" });
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch task" });
+  }
+});
+
+/* ---------------- UPDATE TASK ---------------- */
+router.patch("/:id", async (req, res) => {
+  if (!req.user) return res.status(401).json({ error: "Unauthorized" });
+
+  const { id } = req.params;
+  const { asset_type_id, task_category_id, name, standard_value, unit, remarks } = req.body;
+
+  if (!asset_type_id && !task_category_id && !name && !standard_value && !unit && !remarks) {
+    return res.status(400).json({ error: "No fields to update" });
+  }
+
+  try {
+    const existing = await pool.query("SELECT * FROM tasks WHERE id = $1", [id]);
+    if (existing.rowCount === 0) return res.status(404).json({ error: "Task not found" });
+
+    const task = existing.rows[0];
+
+    const updated = await pool.query(
+      `UPDATE tasks SET 
+        asset_type_id = $1,
+        task_category_id = $2,
+        name = $3,
+        standard_value = $4,
+        unit = $5,
+        remarks = $6
+       WHERE id = $7
+       RETURNING *`,
+      [
+        asset_type_id ?? task.asset_type_id,
+        task_category_id ?? task.task_category_id,
+        name?.trim() ?? task.name,
+        standard_value?.trim() ?? task.standard_value,
+        unit?.trim() ?? task.unit,
+        remarks?.trim() ?? task.remarks,
+        id
+      ]
+    );
+
+    res.json(updated.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to update task" });
+  }
+});
+
+/* ---------------- DELETE TASK ---------------- */
+router.delete("/:id", async (req, res) => {
+  if (!req.user) return res.status(401).json({ error: "Unauthorized" });
+
+  const { id } = req.params;
+
+  try {
+    const result = await pool.query("DELETE FROM tasks WHERE id = $1 RETURNING *", [id]);
+    if (result.rowCount === 0) return res.status(404).json({ error: "Task not found" });
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to delete task" });
+  }
+});
+
+export default router;
