@@ -10,11 +10,11 @@ import assetsRoute from "./assets.js";
 import schedulesRoute from "./schedules.js";
 import tasksRoute from "./tasks.js";
 import settingsRoute from "./settings.js";
-import categoriesRoute from "./categories.js";
 import assetsCategoriesRoute from './admin/asset_categories.js'
 import assetsSubCategoriesRoute from './admin/subcategories.js'
 import assetsTypesRoute from './admin/asset_types.js'
 import taskCategoriesRoute from './admin/task_categories.js'
+import suggestedTasksRoute from './admin/suggested_tasks.js'
 import generateTasksFromSchedules from "./utils/generateTasks.js";
 import sendTaskNotifications from "./utils/sendTaskNotifications.js";
 import cron from "node-cron";
@@ -60,11 +60,11 @@ app.use("/api/assets", assetsRoute);
 app.use("/api/schedules", schedulesRoute);
 app.use("/api/tasks", tasksRoute);
 app.use("/api/settings", settingsRoute);
-app.use("/api/categories", categoriesRoute);
 app.use("/api/asset_categories", assetsCategoriesRoute);
 app.use("/api/asset_subcategories", assetsSubCategoriesRoute);
 app.use("/api/asset_types", assetsTypesRoute);
 app.use("/api/task_categories", taskCategoriesRoute);
+app.use("/api/suggested_tasks", suggestedTasksRoute);
 
 setupLocal(passport);
 setupGoogle(passport);

@@ -14,13 +14,13 @@ router.post("/", async (req, res) => {
   if (!name?.trim() || !Array.isArray(subcategory_ids)) {
     return res.status(400).json({ error: "Invalid data" });
   }
-  
 
   const client = await pool.connect();
 
   try {
     await client.query("BEGIN");
 
+    // Check for existing category
     const existing = await client.query(
       "SELECT id FROM task_categories WHERE LOWER(name) = LOWER($1) LIMIT 1",
       [name.trim()]
@@ -28,23 +28,27 @@ router.post("/", async (req, res) => {
 
     if (existing.rows.length > 0) {
       await client.query("ROLLBACK");
-      return res.status(409).json({
-        error: "Task category with this name already exists"
-      });
+      return res.status(409).json({ error: "Task category with this name already exists" });
     }
 
+    // Insert the task category
     const result = await client.query(
       "INSERT INTO task_categories (name) VALUES ($1) RETURNING id",
       [name.trim()]
     );
-
     const taskCategoryId = result.rows[0].id;
 
-    const insertQuery =
-      "INSERT INTO subcategory_task_categories (task_category_id, subcategory_id) VALUES ($1, $2)";
+    // Batch insert subcategories
+    if (subcategory_ids.length > 0) {
+      const placeholders = subcategory_ids
+        .map((_, idx) => `($1, $${idx + 2})`)
+        .join(", ");
+      const values = [taskCategoryId, ...subcategory_ids];
 
-    for (const subId of subcategory_ids) {
-      await client.query(insertQuery, [taskCategoryId, subId]);
+      await client.query(
+        `INSERT INTO subcategory_task_categories (task_category_id, subcategory_id) VALUES ${placeholders}`,
+        values
+      );
     }
 
     await client.query("COMMIT");
@@ -66,7 +70,6 @@ router.post("/", async (req, res) => {
     client.release();
   }
 });
-
 
 
 /* ---------------- GET ALL TASK CATEGORIES ---------------- */

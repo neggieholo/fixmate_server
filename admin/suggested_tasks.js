@@ -9,23 +9,35 @@ router.post("/", async (req, res) => {
 
   const { asset_type_id, task_category_id, name, standard_value, unit, remarks } = req.body;
 
-  if (!asset_type_id || !task_category_id || !name?.trim()) {
+  if (!asset_type_id || !task_category_id || !name) {
     return res.status(400).json({ error: "Missing required fields" });
   }
 
   try {
+    // Check if task already exists for this asset type and category
+    const existing = await pool.query(
+      `SELECT id FROM suggested_tasks 
+       WHERE asset_type_id = $1 AND task_category_id = $2 AND name = $3`,
+      [asset_type_id, task_category_id, name]
+    );
+
+    if (existing.rows.length > 0) {
+      return res.status(409).json({ error: "Task with this name already exists for the selected asset type and category" });
+    }
+
+    // Insert new task
     const result = await pool.query(
-      `INSERT INTO tasks 
+      `INSERT INTO suggested_tasks 
         (asset_type_id, task_category_id, name, standard_value, unit, remarks) 
        VALUES ($1, $2, $3, $4, $5, $6) 
        RETURNING *`,
       [
         asset_type_id,
         task_category_id,
-        name.trim(),
-        standard_value?.trim() || null,
-        unit?.trim() || null,
-        remarks?.trim() || null
+        name,
+        standard_value || null,
+        unit || null,
+        remarks || null
       ]
     );
 
@@ -41,7 +53,7 @@ router.get("/", async (req, res) => {
   if (!req.user) return res.status(401).json({ error: "Unauthorized" });
 
   try {
-    const result = await pool.query("SELECT * FROM tasks ORDER BY id DESC");
+    const result = await pool.query("SELECT * FROM suggested_tasks ORDER BY id DESC");
     res.json(result.rows);
   } catch (err) {
     console.error(err);
@@ -56,7 +68,7 @@ router.get("/:id", async (req, res) => {
   const { id } = req.params;
 
   try {
-    const result = await pool.query("SELECT * FROM tasks WHERE id = $1", [id]);
+    const result = await pool.query("SELECT * FROM suggested_tasks WHERE id = $1", [id]);
     if (result.rowCount === 0) return res.status(404).json({ error: "Task not found" });
 
     res.json(result.rows[0]);
@@ -78,13 +90,13 @@ router.patch("/:id", async (req, res) => {
   }
 
   try {
-    const existing = await pool.query("SELECT * FROM tasks WHERE id = $1", [id]);
+    const existing = await pool.query("SELECT * FROM suggested_tasks WHERE id = $1", [id]);
     if (existing.rowCount === 0) return res.status(404).json({ error: "Task not found" });
 
     const task = existing.rows[0];
 
     const updated = await pool.query(
-      `UPDATE tasks SET 
+      `UPDATE suggested_tasks SET 
         asset_type_id = $1,
         task_category_id = $2,
         name = $3,
@@ -118,7 +130,7 @@ router.delete("/:id", async (req, res) => {
   const { id } = req.params;
 
   try {
-    const result = await pool.query("DELETE FROM tasks WHERE id = $1 RETURNING *", [id]);
+    const result = await pool.query("DELETE FROM suggested_tasks WHERE id = $1 RETURNING *", [id]);
     if (result.rowCount === 0) return res.status(404).json({ error: "Task not found" });
 
     res.json({ success: true });
