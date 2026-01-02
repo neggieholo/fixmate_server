@@ -124,5 +124,27 @@ router.delete("/:id", async (req, res) => {
   }
 });
 
+router.get("/by-subcategory/:subcategoryId", async (req, res) => {
+  if (!req.user) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  try {
+    const { subcategoryId } = req.params;
+
+    if (!subcategoryId) {
+      return res.status(400).json({ error: "Subcategory ID is required" });
+    }
+
+    const result = await pool.query(
+      "SELECT * FROM asset_types WHERE subcategory_id = $1 ORDER BY name",
+      [subcategoryId]
+    );
+
+    res.json({ success: true, assetTypes: result.rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch asset types" });
+  }
+});
 
 export default router;

@@ -94,6 +94,30 @@ router.delete("/:id", async (req, res) => {
   }
 });
 
+// Get subcategories by category_id
+router.get("/by-category/:categoryId", async (req, res) => {
+  if (!req.user) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  try {
+    const { categoryId } = req.params;
+
+    if (!categoryId) {
+      return res.status(400).json({ error: "categoryId parameter is required" });
+    }
+
+    const result = await pool.query(
+      "SELECT * FROM asset_subcategories WHERE category_id = $1 ORDER BY name",
+      [categoryId]
+    );
+
+    res.json({ success: true, subcategories: result.rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch subcategories" });
+  }
+});
 
 
 export default router;
