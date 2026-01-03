@@ -6,56 +6,65 @@ const router = express.Router();
 // ----------------------
 // POST /save - Create a new schedule
 router.post("/save", async (req, res) => {
-    try {
-        if (!req.user) {
-            return res.status(401).json({ error: "Unauthorized" });
-        }
-
-        const user_id = req.user.id;
-        const {
-            name,
-            linked_asset,
-            frequency,
-            start_date,
-            end_date,
-            status,
-            notes,
-        } = req.body;
-
-        // Validate only critical fields
-        if (!name || !linked_asset || !frequency) {
-            return res.status(400).json({ error: "Missing required fields" });
-        }
-
-        // Use NOW() for start_date if not provided
-        const result = await pool.query(
-            `INSERT INTO maintenance_schedules
-            (schedule_name, asset_id, frequency, start_date, end_date, status, notes, user_id, created_at, updated_at)
-            VALUES (
-                $1,
-                $2,
-                $3,
-                COALESCE($4::timestamp, NOW()),  -- default to NOW() if null
-                $5::timestamp,                   -- can be null
-                COALESCE($6, 'active'),          -- default status
-                $7,
-                $8,
-                NOW(),
-                NOW()
-            )
-            RETURNING *`,
-            [name, linked_asset, frequency, start_date || null, end_date || null, status, notes, user_id]
-        );
-
-        res.status(201).json({
-            message: "✅ Schedule created successfully",
-            schedule: result.rows[0],
-        });
-    } catch (err) {
-        console.error("❌ Error inserting schedule:", err);
-        res.status(500).json({ error: "Server error inserting schedule" });
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: "Unauthorized" });
     }
+
+    const user_id = req.user.id;
+    const {
+      name,
+      asset_id,
+      frequency,
+      start_date,
+      end_date,
+      status,
+      notes,
+      standard_value, // <-- new field from frontend
+    } = req.body;
+
+    // Validate critical fields
+    if (!name || !asset_id || !frequency) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO maintenance_schedules
+        (schedule_name, asset_id, frequency, start_date, end_date, status, notes, standard_value, user_id, created_at, updated_at)
+      VALUES (
+        $1, $2, $3,
+        COALESCE($4::date, CURRENT_DATE),
+        $5::date,
+        COALESCE($6, 'active'),
+        $7, $8, $9,
+        NOW(),
+        NOW()
+      )
+      RETURNING *`,
+      [
+        name,
+        asset_id,
+        frequency,
+        start_date || null,
+        end_date || null,
+        status,
+        notes,
+        standard_value || null,
+        user_id,
+      ]
+    );
+
+    res.status(201).json({
+      message: "✅ Schedule created successfully",
+      schedule: result.rows[0],
+    });
+  } catch (err) {
+    console.error("❌ Error inserting schedule:", err);
+    res.status(500).json({ error: "Server error inserting schedule" });
+  }
 });
+
+
 
 
 // ----------------------
@@ -202,12 +211,10 @@ router.put("/update/:id", async (req, res) => {
 
         const {
             schedule_name,
-            asset_id,
-            frequency,
-            start_date,
             end_date,
-            status,
             notes,
+            frequency,
+            standard_value, // <-- added
         } = req.body;
 
         // Ensure the schedule belongs to this user
@@ -220,20 +227,20 @@ router.put("/update/:id", async (req, res) => {
             return res.status(404).json({ error: "Schedule not found" });
         }
 
-        // Update schedule
+        // Update schedule including standard_value
         const result = await pool.query(
-           `UPDATE maintenance_schedules
-            SET 
-                schedule_name = COALESCE(NULLIF($1, ''), schedule_name),
-                end_date = COALESCE(NULLIF($2, '')::timestamp, end_date),
-                notes = COALESCE(NULLIF($3, ''), notes),
-                frequency = COALESCE(NULLIF($4, ''), frequency),
-                updated_at = NOW()
-            WHERE id = $5 AND user_id = $6
-            RETURNING *`,
-            [schedule_name, end_date, notes, frequency, scheduleId, user_id]
+            `UPDATE maintenance_schedules
+             SET 
+                 schedule_name = COALESCE(NULLIF($1, ''), schedule_name),
+                 end_date = COALESCE(NULLIF($2, '')::timestamp, end_date),
+                 notes = COALESCE(NULLIF($3, ''), notes),
+                 frequency = COALESCE(NULLIF($4, ''), frequency),
+                 standard_value = COALESCE(NULLIF($5, ''), standard_value),
+                 updated_at = NOW()
+             WHERE id = $6 AND user_id = $7
+             RETURNING *`,
+            [schedule_name, end_date, notes, frequency, standard_value, scheduleId, user_id]
         );
-
 
         res.status(200).json({
             message: "✅ Schedule updated successfully",
@@ -244,6 +251,7 @@ router.put("/update/:id", async (req, res) => {
         res.status(500).json({ error: "Server error updating schedule" });
     }
 });
+
 
 router.get("/:id", async (req, res) => {
     try {

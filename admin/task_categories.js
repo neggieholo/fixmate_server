@@ -146,4 +146,73 @@ router.delete("/:id", async (req, res) => {
   }
 });
 
+/* ---------------- GET TASK CATEGORIES BY ASSET TYPE ---------------- */
+router.get("/by_sub_assetType", async (req, res) => {
+  if (!req.user) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  const assetTypeId = Number(req.query.assetTypeId);
+  const subcategoryId = Number(req.query.subcategoryId);
+
+  try {
+    let rows;
+
+    if (assetTypeId) {
+      console.log("Fetching task categories by asset type ID:", assetTypeId);
+
+      const result = await pool.query(
+        `
+        SELECT
+          tc.id,
+          tc.name,
+          COUNT(st.id) AS task_count
+        FROM asset_types at
+        JOIN subcategory_task_categories stc
+          ON stc.subcategory_id = at.subcategory_id
+        JOIN task_categories tc
+          ON tc.id = stc.task_category_id
+        LEFT JOIN suggested_tasks st
+          ON st.task_category_id = tc.id
+         AND st.asset_type_id = at.id
+        WHERE at.id = $1
+        GROUP BY tc.id, tc.name
+        ORDER BY tc.name
+        `,
+        [assetTypeId]
+      );
+
+      rows = result.rows;
+    } else if (subcategoryId) {
+      console.log("Fetching task categories by subcategory ID:", subcategoryId);
+
+      const result = await pool.query(
+        `
+        SELECT
+          tc.id,
+          tc.name
+        FROM subcategory_task_categories stc
+        JOIN task_categories tc
+          ON tc.id = stc.task_category_id
+        WHERE stc.subcategory_id = $1
+        ORDER BY tc.name
+        `,
+        [subcategoryId]
+      );
+
+      rows = result.rows; // no task counts here
+    } else {
+      return res.status(400).json({ error: "Please provide assetTypeId or subcategoryId" });
+    }
+
+    res.json(rows);
+  } catch (err) {
+    console.error("Failed to fetch task categories:", err);
+    res.status(500).json({ error: "Failed to fetch task categories" });
+  }
+});
+
+
+
+
 export default router;

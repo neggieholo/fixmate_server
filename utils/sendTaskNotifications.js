@@ -59,13 +59,17 @@ async function sendTaskNotifications() {
               <p>The following maintenance tasks are due within the next 2 weeks:</p>
               <ul>
                 ${upcoming.rows
-                  .map(
-                    t => `
+                  .map(t => `
                     <li>
-                      <strong>${t.task_name}</strong> — scheduled for 
-                      <em>${new Date(t.scheduled_date).toLocaleDateString()}</em>
-                    </li>`
-                  )
+                      <strong>${t.task_name}</strong><br/>
+                      Scheduled for: <em>${new Date(t.scheduled_date).toLocaleDateString()}</em><br/>
+                      ${
+                        t.standard_value
+                          ? `<span>Standard Value: <strong>${t.standard_value}</strong></span>`
+                          : `<span>Standard Value: <em>Not specified</em></span>`
+                      }
+                    </li>
+                  `)
                   .join("")}
               </ul>
               <p>Please review and take the necessary actions.</p>

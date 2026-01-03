@@ -196,6 +196,7 @@ router.post("/save", async (req, res) => {
             asset_id,
             task_name,
             scheduled_date,
+            standard_value,
             status,
             notes = "",
         } = req.body;
@@ -212,8 +213,8 @@ router.post("/save", async (req, res) => {
         // 2️⃣ Insert the new task
         const insertQuery = `
             INSERT INTO maintenance_tasks 
-                (asset_id, task_name, scheduled_date, status, notes, created_at, updated_at)
-            VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+                (asset_id, task_name, scheduled_date, status, notes, created_at, updated_at, standard_value)
+            VALUES ($1, $2, $3, $4, $5, NOW(), NOW(), $6)
             RETURNING *;
             `;
 
@@ -223,6 +224,7 @@ router.post("/save", async (req, res) => {
             scheduled_date,
             status,
             notes,
+            standard_value || null,
         ]);
 
         const newTask = result.rows[0];
@@ -236,22 +238,21 @@ router.post("/save", async (req, res) => {
         console.log(`👤 Incremented total_tasks for user ID: ${user_id}`);
 
         // 3️⃣ Fetch joined info (to keep the frontend display consistent)
-        const detailed = await pool.query(
-           `SELECT 
-            t.*, 
-            a.name AS asset_name,
-            a.model AS asset_model,
-            s.schedule_name
-            FROM maintenance_tasks t
-            LEFT JOIN assets a ON t.asset_id = a.id
-            LEFT JOIN maintenance_schedules s ON t.schedule_id = s.id
-            WHERE t.id = $1`,
-            [newTask.id]
-         );
+        // const detailed = await pool.query(
+        //    `SELECT 
+        //     t.*, 
+        //     a.name AS asset_name,
+        //     a.model AS asset_model,
+        //     s.schedule_name
+        //     FROM maintenance_tasks t
+        //     LEFT JOIN assets a ON t.asset_id = a.id
+        //     LEFT JOIN maintenance_schedules s ON t.schedule_id = s.id
+        //     WHERE t.id = $1`,
+        //     [newTask.id]
+        //  );
 
         res.status(201).json({
-            message: "🟢 New task created successfully",
-            task: detailed.rows[0],
+            message: "🟢 New task created successfully"
         });
     } catch (err) {
         console.error("❌ Task creation API error:", err);

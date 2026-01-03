@@ -33,7 +33,7 @@ export default async function generateTasksFromSchedules() {
 
         // 3️⃣ Iterate through schedules
         for (const schedule of schedules.rows) {
-            const { id, asset_id, schedule_name, start_date, end_date, frequency, notes, user_id } = schedule;
+            const { id, asset_id, schedule_name, start_date, end_date, frequency, notes, user_id, standard_value } = schedule;
 
             // Skip invalid or expired schedules
             if (!start_date || (end_date && new Date(end_date) < now)) {
@@ -78,10 +78,10 @@ export default async function generateTasksFromSchedules() {
             // 6️⃣ Create new active task
             const taskResult = await pool.query(
                `INSERT INTO maintenance_tasks 
-                (asset_id, schedule_id, task_name, scheduled_date, status, notes, created_at, updated_at)
-                VALUES ($1, $2, $3, $4, 'active', $5, NOW(), NOW())
+                (asset_id, schedule_id, task_name, scheduled_date,standard_value, status, notes, created_at, updated_at)
+                VALUES ($1, $2, $3, $4, $5, 'active', $6, NOW(), NOW())
                 RETURNING *`,
-                [asset_id, id, `${schedule_name}`, next_task_date, notes || ""]
+                [asset_id, id, `${schedule_name}`, next_task_date, standard_value ?? null, notes || ""]
                 );
 
                 const task = taskResult.rows[0];
